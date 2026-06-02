@@ -90,7 +90,9 @@ pub async fn on_playback_stopped<S: JellyfinAppState>(
     if let Some(file_id_str) = &body.media_source_id
         && let Ok(file_id) = file_id_str.parse::<Uuid>()
     {
-        state.stop_playback_session(user.user_id, file_id, position).await;
+        state
+            .stop_playback_session(user.user_id, file_id, position)
+            .await;
     }
 
     StatusCode::NO_CONTENT.into_response()

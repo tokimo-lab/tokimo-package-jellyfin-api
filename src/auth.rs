@@ -20,7 +20,9 @@ use crate::{JellyfinAppState, JellyfinUser};
 pub fn parse_mediabrowser_token(header_value: &str) -> Option<String> {
     let s = header_value.trim();
     // Strip scheme prefix
-    let body = s.strip_prefix("MediaBrowser ").or_else(|| s.strip_prefix("Emby "))?;
+    let body = s
+        .strip_prefix("MediaBrowser ")
+        .or_else(|| s.strip_prefix("Emby "))?;
 
     for part in body.split(',') {
         let part = part.trim();
@@ -71,7 +73,10 @@ pub struct MediaBrowserClientInfo {
 
 /// Resolve a bearer token to a user. Looks up `api_keys.note = token` (plaintext
 /// for simplicity; the real Jellyfin also stores tokens in plaintext).
-pub async fn resolve_token(db: &DatabaseConnection, token: &str) -> Result<Option<(Uuid, String)>, DbErr> {
+pub async fn resolve_token(
+    db: &DatabaseConnection,
+    token: &str,
+) -> Result<Option<(Uuid, String)>, DbErr> {
     // We use SeaORM raw-ish approach via entities. We need access to api_keys
     // and users entities from the host crate, but we don't have them here.
     // Instead, use raw SQL.
@@ -99,7 +104,12 @@ pub async fn resolve_token(db: &DatabaseConnection, token: &str) -> Result<Optio
 }
 
 /// Store a new Jellyfin token into api_keys.
-pub async fn store_token(db: &DatabaseConnection, user_id: Uuid, token: &str, device_id: &str) -> Result<(), DbErr> {
+pub async fn store_token(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+    token: &str,
+    device_id: &str,
+) -> Result<(), DbErr> {
     use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
 
     let id = Uuid::new_v4();
@@ -139,7 +149,10 @@ struct ApiKeyQuery {
 impl<S: JellyfinAppState> FromRequestParts<Arc<S>> for JellyfinAuth<S> {
     type Rejection = Response;
 
-    async fn from_request_parts(parts: &mut Parts, state: &Arc<S>) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &Arc<S>,
+    ) -> Result<Self, Self::Rejection> {
         // 1. Authorization header
         let token = parts
             .headers

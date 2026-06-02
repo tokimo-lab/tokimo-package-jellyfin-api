@@ -263,7 +263,10 @@ pub async fn get_items<S: JellyfinAppState>(
         .map(|s| s.split(',').map(str::trim).collect())
         .unwrap_or_default();
     let search_term = q.search_term.as_deref().unwrap_or("");
-    let is_resumable = q.filters.as_deref().is_some_and(|f| f.contains("IsResumable"));
+    let is_resumable = q
+        .filters
+        .as_deref()
+        .is_some_and(|f| f.contains("IsResumable"));
     let start = q.start_index.unwrap_or(0);
     let limit = q.limit.unwrap_or(50).min(500);
 
@@ -280,10 +283,17 @@ pub async fn get_items<S: JellyfinAppState>(
 
     // person-based filter: personIds=uuid queries across both movies and TV shows
     if let Some(ref pid_str) = q.person_ids
-        && let Some(pid) = pid_str.split(',').next().and_then(|s| s.trim().parse::<Uuid>().ok())
+        && let Some(pid) = pid_str
+            .split(',')
+            .next()
+            .and_then(|s| s.trim().parse::<Uuid>().ok())
     {
         let fields = q.fields.as_deref();
-        return match fetch_items_by_person(db, pid, user_id, server_id, sort_field, sort_dir, start, limit).await {
+        return match fetch_items_by_person(
+            db, pid, user_id, server_id, sort_field, sort_dir, start, limit,
+        )
+        .await
+        {
             Ok((mut items, total)) => {
                 if let Err(e) = enrich_with_shape_fields(db, &mut items).await {
                     tracing::error!("enrich_with_shape_fields personIds: {e}");
@@ -327,7 +337,11 @@ pub async fn get_items<S: JellyfinAppState>(
     let result = match parent_type.as_deref() {
         Some("movie") => {
             // Movie library: only Movies match; Seasons/Episodes don't exist here
-            if include_types.is_empty() || include_types.iter().any(|t| t.eq_ignore_ascii_case("Movie")) {
+            if include_types.is_empty()
+                || include_types
+                    .iter()
+                    .any(|t| t.eq_ignore_ascii_case("Movie"))
+            {
                 fetch_video_items(db, &fp).await
             } else {
                 Ok((vec![], 0))
@@ -335,31 +349,88 @@ pub async fn get_items<S: JellyfinAppState>(
         }
         Some("tv") => {
             // TV library: route by requested item type
-            if include_types.iter().any(|t| t.eq_ignore_ascii_case("Season")) {
-                fetch_all_seasons_in_library(db, parent_id.unwrap(), user_id, server_id, start, limit).await
-            } else if include_types.iter().any(|t| t.eq_ignore_ascii_case("Episode")) {
-                fetch_all_episodes_in_library(db, parent_id.unwrap(), user_id, server_id, start, limit).await
+            if include_types
+                .iter()
+                .any(|t| t.eq_ignore_ascii_case("Season"))
+            {
+                fetch_all_seasons_in_library(
+                    db,
+                    parent_id.unwrap(),
+                    user_id,
+                    server_id,
+                    start,
+                    limit,
+                )
+                .await
+            } else if include_types
+                .iter()
+                .any(|t| t.eq_ignore_ascii_case("Episode"))
+            {
+                fetch_all_episodes_in_library(
+                    db,
+                    parent_id.unwrap(),
+                    user_id,
+                    server_id,
+                    start,
+                    limit,
+                )
+                .await
             } else {
                 // Series or default
                 fetch_tv_shows(db, &fp).await
             }
         }
-        Some("series") => fetch_seasons_for_series(db, parent_id.unwrap(), user_id, server_id).await,
-        Some("season") => fetch_episodes_for_season(db, parent_id.unwrap(), user_id, server_id).await,
+        Some("series") => {
+            fetch_seasons_for_series(db, parent_id.unwrap(), user_id, server_id).await
+        }
+        Some("season") => {
+            fetch_episodes_for_season(db, parent_id.unwrap(), user_id, server_id).await
+        }
         _ => {
             // No parent or unknown — use IncludeItemTypes
-            let fp_no_parent = FetchParams { video_id: None, ..fp };
-            if include_types.iter().any(|t| t.eq_ignore_ascii_case("Movie")) {
+            let fp_no_parent = FetchParams {
+                video_id: None,
+                ..fp
+            };
+            if include_types
+                .iter()
+                .any(|t| t.eq_ignore_ascii_case("Movie"))
+            {
                 fetch_video_items(db, &fp_no_parent).await
-            } else if include_types.iter().any(|t| t.eq_ignore_ascii_case("Series")) {
+            } else if include_types
+                .iter()
+                .any(|t| t.eq_ignore_ascii_case("Series"))
+            {
                 fetch_tv_shows(db, &fp_no_parent).await
-            } else if include_types.iter().any(|t| t.eq_ignore_ascii_case("Episode")) {
-                fetch_all_episodes(db, search_term, is_resumable, user_id, server_id, start, limit).await
+            } else if include_types
+                .iter()
+                .any(|t| t.eq_ignore_ascii_case("Episode"))
+            {
+                fetch_all_episodes(
+                    db,
+                    search_term,
+                    is_resumable,
+                    user_id,
+                    server_id,
+                    start,
+                    limit,
+                )
+                .await
             } else if is_resumable {
                 fetch_resumable(db, user_id, server_id, start, limit).await
             } else {
                 // Default: return movies + tv shows combined
-                fetch_all_media(db, search_term, user_id, server_id, sort_field, sort_dir, start, limit).await
+                fetch_all_media(
+                    db,
+                    search_term,
+                    user_id,
+                    server_id,
+                    sort_field,
+                    sort_dir,
+                    start,
+                    limit,
+                )
+                .await
             }
         }
     };
@@ -474,7 +545,12 @@ pub async fn get_episodes<S: JellyfinAppState>(
             if let Err(e) = enrich_with_media_sources(db, &mut items).await {
                 tracing::error!("enrich_with_media_sources episodes: {e}");
             }
-            Json(media_list_query_result(items, total, q.start_index.unwrap_or(0))).into_response()
+            Json(media_list_query_result(
+                items,
+                total,
+                q.start_index.unwrap_or(0),
+            ))
+            .into_response()
         }
         Err(e) => {
             tracing::error!("jellyfin get_episodes: {e}");
@@ -485,7 +561,10 @@ pub async fn get_episodes<S: JellyfinAppState>(
 
 // ── Internal query helpers ────────────────────────────────────────────────────
 
-async fn determine_parent_type(db: &sea_orm::DatabaseConnection, parent_id: Uuid) -> Option<String> {
+async fn determine_parent_type(
+    db: &sea_orm::DatabaseConnection,
+    parent_id: Uuid,
+) -> Option<String> {
     // Check videos table first (most common case for parentId in video context)
     let stmt = Statement::from_sql_and_values(
         DatabaseBackend::Postgres,
@@ -586,7 +665,11 @@ fn format_jellyfin_key(id: &str) -> String {
 }
 
 fn uuids_to_pg_array(ids: &[Uuid]) -> sea_orm::Value {
-    let joined = ids.iter().map(ToString::to_string).collect::<Vec<_>>().join(",");
+    let joined = ids
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join(",");
     format!("{{{joined}}}").into()
 }
 
@@ -779,7 +862,9 @@ async fn enrich_with_shape_fields(
             for idx in indices {
                 let item = &mut items[idx];
                 item.date_created = created_at.map(|date| date.to_rfc3339());
-                item.date_last_media_added = date_last_media_added.or(created_at).map(|date| date.to_rfc3339());
+                item.date_last_media_added = date_last_media_added
+                    .or(created_at)
+                    .map(|date| date.to_rfc3339());
                 item.etag = Some(build_jellyfin_etag(
                     &item.id,
                     &[
@@ -852,7 +937,9 @@ async fn enrich_with_shape_fields(
 
             for idx in indices {
                 let item = &mut items[idx];
-                item.critic_rating = item.critic_rating.or(douban_rating.map(|rating| rating * 10.0));
+                item.critic_rating = item
+                    .critic_rating
+                    .or(douban_rating.map(|rating| rating * 10.0));
                 if item.path.is_none() {
                     item.path.clone_from(&video_path);
                 }
@@ -869,7 +956,9 @@ async fn enrich_with_shape_fields(
                     }));
                 }
                 if item.date_created.is_none() {
-                    item.date_created = video_created_at.or(video_updated_at).map(|date| date.to_rfc3339());
+                    item.date_created = video_created_at
+                        .or(video_updated_at)
+                        .map(|date| date.to_rfc3339());
                 }
                 item.special_feature_count = Some(0);
             }
@@ -911,7 +1000,8 @@ async fn enrich_with_shape_fields(
 
         for row in &rows {
             let id: Uuid = row.try_get("", "id").unwrap();
-            let last_air_date: Option<chrono::NaiveDate> = row.try_get("", "last_air_date").ok().flatten();
+            let last_air_date: Option<chrono::NaiveDate> =
+                row.try_get("", "last_air_date").ok().flatten();
             let updated_at: Option<chrono::DateTime<chrono::FixedOffset>> =
                 row.try_get("", "updated_at").ok().flatten();
             let total_runtime: i64 = row.try_get("", "total_runtime").unwrap_or(0);
@@ -935,7 +1025,9 @@ async fn enrich_with_shape_fields(
                     item.run_time_ticks = Some(seconds_to_ticks(seconds));
                 }
                 if item.path.is_none() {
-                    item.path = sample_path.as_deref().and_then(infer_series_path_from_sample);
+                    item.path = sample_path
+                        .as_deref()
+                        .and_then(infer_series_path_from_sample);
                 }
                 if item.etag.is_none() {
                     item.etag = Some(sample_checksum.clone().unwrap_or_else(|| {
@@ -990,7 +1082,8 @@ async fn enrich_with_shape_fields(
             let tv_show_id: Uuid = row.try_get("", "tv_show_id").unwrap();
             let air_date: Option<chrono::NaiveDate> = row.try_get("", "air_date").ok().flatten();
             let show_year: Option<i32> = row.try_get("", "show_year").ok().flatten();
-            let series_poster_path: Option<String> = row.try_get("", "series_poster_path").ok().flatten();
+            let series_poster_path: Option<String> =
+                row.try_get("", "series_poster_path").ok().flatten();
             let sample_path: Option<String> = row.try_get("", "sample_path").ok().flatten();
             let sample_checksum: Option<String> = row.try_get("", "sample_checksum").ok().flatten();
             let sample_created_at: Option<chrono::DateTime<chrono::FixedOffset>> =
@@ -1016,7 +1109,10 @@ async fn enrich_with_shape_fields(
                     item.etag = Some(sample_checksum.clone().unwrap_or_else(|| {
                         build_jellyfin_etag(
                             &item.id,
-                            &[sample_updated_at.map(|date| date.to_rfc3339()), sample_path.clone()],
+                            &[
+                                sample_updated_at.map(|date| date.to_rfc3339()),
+                                sample_path.clone(),
+                            ],
                         )
                     }));
                 }
@@ -1081,8 +1177,10 @@ async fn enrich_with_shape_fields(
             let id: Uuid = row.try_get("", "id").unwrap();
             let tv_show_id: Uuid = row.try_get("", "tv_show_id").unwrap();
             let air_date: Option<chrono::NaiveDate> = row.try_get("", "air_date").ok().flatten();
-            let series_poster_path: Option<String> = row.try_get("", "series_poster_path").ok().flatten();
-            let series_backdrop_path: Option<String> = row.try_get("", "series_backdrop_path").ok().flatten();
+            let series_poster_path: Option<String> =
+                row.try_get("", "series_poster_path").ok().flatten();
+            let series_backdrop_path: Option<String> =
+                row.try_get("", "series_backdrop_path").ok().flatten();
             let has_series_logo: bool = row.try_get("", "has_series_logo").unwrap_or(false);
             let sample_path: Option<String> = row.try_get("", "sample_path").ok().flatten();
             let sample_checksum: Option<String> = row.try_get("", "sample_checksum").ok().flatten();
@@ -1110,7 +1208,10 @@ async fn enrich_with_shape_fields(
                     item.etag = Some(sample_checksum.clone().unwrap_or_else(|| {
                         build_jellyfin_etag(
                             &item.id,
-                            &[sample_updated_at.map(|date| date.to_rfc3339()), sample_path.clone()],
+                            &[
+                                sample_updated_at.map(|date| date.to_rfc3339()),
+                                sample_path.clone(),
+                            ],
                         )
                     }));
                 }
@@ -1203,7 +1304,11 @@ fn season_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> BaseItemDto {
         } else {
             None
         },
-        series_primary_image_tag: if series_poster.is_some() { Some(tv_id) } else { None },
+        series_primary_image_tag: if series_poster.is_some() {
+            Some(tv_id)
+        } else {
+            None
+        },
         ..Default::default()
     }
 }
@@ -1220,7 +1325,10 @@ fn parse_frame_rate(s: &str) -> Option<f64> {
 /// - Movie items: joins `video_cast` + `video_persons`
 /// - Series items: joins `tv_season_cast` + `tv_persons` (deduped by person across all seasons)
 /// - Season/Episode items: joins `tv_season_cast` + `tv_persons` via the item's tv_show_id
-async fn enrich_with_people(db: &sea_orm::DatabaseConnection, items: &mut [BaseItemDto]) -> Result<(), sea_orm::DbErr> {
+async fn enrich_with_people(
+    db: &sea_orm::DatabaseConnection,
+    items: &mut [BaseItemDto],
+) -> Result<(), sea_orm::DbErr> {
     use crate::models::PersonDto;
     for item in items.iter_mut() {
         let Ok(id) = item.id.parse::<Uuid>() else {
@@ -1239,7 +1347,11 @@ async fn enrich_with_people(db: &sea_orm::DatabaseConnection, items: &mut [BaseI
                       LIMIT 50"
                 );
                 let rows = db
-                    .query_all_raw(Statement::from_sql_and_values(DatabaseBackend::Postgres, &sql, []))
+                    .query_all_raw(Statement::from_sql_and_values(
+                        DatabaseBackend::Postgres,
+                        &sql,
+                        [],
+                    ))
                     .await?;
                 for r in &rows {
                     let person_id: Uuid = r.try_get("", "id").unwrap_or_default();
@@ -1252,9 +1364,17 @@ async fn enrich_with_people(db: &sea_orm::DatabaseConnection, items: &mut [BaseI
                     people.push(PersonDto {
                         name,
                         id: person_id.to_string(),
-                        role: if person_type == "Actor" { character } else { None },
+                        role: if person_type == "Actor" {
+                            character
+                        } else {
+                            None
+                        },
                         person_type,
-                        primary_image_tag: if has_image { Some(person_id.to_string()) } else { None },
+                        primary_image_tag: if has_image {
+                            Some(person_id.to_string())
+                        } else {
+                            None
+                        },
                         image_blur_hashes: HashMap::default(),
                     });
                 }
@@ -1269,7 +1389,11 @@ async fn enrich_with_people(db: &sea_orm::DatabaseConnection, items: &mut [BaseI
                       LIMIT 50"
                 );
                 let rows = db
-                    .query_all_raw(Statement::from_sql_and_values(DatabaseBackend::Postgres, &sql, []))
+                    .query_all_raw(Statement::from_sql_and_values(
+                        DatabaseBackend::Postgres,
+                        &sql,
+                        [],
+                    ))
                     .await?;
                 // Re-sort by sort_order after deduplication
                 let mut cast: Vec<(i32, PersonDto)> = rows
@@ -1277,7 +1401,8 @@ async fn enrich_with_people(db: &sea_orm::DatabaseConnection, items: &mut [BaseI
                     .filter_map(|r| {
                         let person_id: Uuid = r.try_get("", "id").ok()?;
                         let name: String = r.try_get("", "name").ok()?;
-                        let profile_path: Option<String> = r.try_get("", "profile_path").ok().flatten();
+                        let profile_path: Option<String> =
+                            r.try_get("", "profile_path").ok().flatten();
                         let role: String = r.try_get("", "role").unwrap_or_default();
                         let character: Option<String> = r.try_get("", "character").ok().flatten();
                         let sort_order: i32 = r.try_get("", "sort_order").unwrap_or(0);
@@ -1288,9 +1413,17 @@ async fn enrich_with_people(db: &sea_orm::DatabaseConnection, items: &mut [BaseI
                             PersonDto {
                                 name,
                                 id: person_id.to_string(),
-                                role: if person_type == "Actor" { character } else { None },
+                                role: if person_type == "Actor" {
+                                    character
+                                } else {
+                                    None
+                                },
                                 person_type,
-                                primary_image_tag: if has_image { Some(person_id.to_string()) } else { None },
+                                primary_image_tag: if has_image {
+                                    Some(person_id.to_string())
+                                } else {
+                                    None
+                                },
                                 image_blur_hashes: HashMap::default(),
                             },
                         ))
@@ -1314,14 +1447,19 @@ async fn enrich_with_people(db: &sea_orm::DatabaseConnection, items: &mut [BaseI
                       LIMIT 50"
                 );
                 let rows = db
-                    .query_all_raw(Statement::from_sql_and_values(DatabaseBackend::Postgres, &sql, []))
+                    .query_all_raw(Statement::from_sql_and_values(
+                        DatabaseBackend::Postgres,
+                        &sql,
+                        [],
+                    ))
                     .await?;
                 let mut cast: Vec<(i32, PersonDto)> = rows
                     .iter()
                     .filter_map(|r| {
                         let person_id: Uuid = r.try_get("", "id").ok()?;
                         let name: String = r.try_get("", "name").ok()?;
-                        let profile_path: Option<String> = r.try_get("", "profile_path").ok().flatten();
+                        let profile_path: Option<String> =
+                            r.try_get("", "profile_path").ok().flatten();
                         let role: String = r.try_get("", "role").unwrap_or_default();
                         let character: Option<String> = r.try_get("", "character").ok().flatten();
                         let sort_order: i32 = r.try_get("", "sort_order").unwrap_or(0);
@@ -1332,9 +1470,17 @@ async fn enrich_with_people(db: &sea_orm::DatabaseConnection, items: &mut [BaseI
                             PersonDto {
                                 name,
                                 id: person_id.to_string(),
-                                role: if person_type == "Actor" { character } else { None },
+                                role: if person_type == "Actor" {
+                                    character
+                                } else {
+                                    None
+                                },
                                 person_type,
-                                primary_image_tag: if has_image { Some(person_id.to_string()) } else { None },
+                                primary_image_tag: if has_image {
+                                    Some(person_id.to_string())
+                                } else {
+                                    None
+                                },
                                 image_blur_hashes: HashMap::default(),
                             },
                         ))
@@ -1390,10 +1536,26 @@ fn build_video_stream_from_json(
         .and_then(|j| j.get("level").and_then(serde_json::Value::as_i64))
         .unwrap_or(0) as i32;
     let pixel_format = v.and_then(|j| j.get("pix_fmt").and_then(|p| p.as_str()).map(String::from));
-    let color_space = v.and_then(|j| j.get("color_space").and_then(|c| c.as_str()).map(String::from));
-    let color_transfer = v.and_then(|j| j.get("color_transfer").and_then(|c| c.as_str()).map(String::from));
-    let color_primaries = v.and_then(|j| j.get("color_primaries").and_then(|c| c.as_str()).map(String::from));
-    let aspect_ratio = v.and_then(|j| j.get("display_aspect_ratio").and_then(|a| a.as_str()).map(String::from));
+    let color_space = v.and_then(|j| {
+        j.get("color_space")
+            .and_then(|c| c.as_str())
+            .map(String::from)
+    });
+    let color_transfer = v.and_then(|j| {
+        j.get("color_transfer")
+            .and_then(|c| c.as_str())
+            .map(String::from)
+    });
+    let color_primaries = v.and_then(|j| {
+        j.get("color_primaries")
+            .and_then(|c| c.as_str())
+            .map(String::from)
+    });
+    let aspect_ratio = v.and_then(|j| {
+        j.get("display_aspect_ratio")
+            .and_then(|a| a.as_str())
+            .map(String::from)
+    });
     let avg_fps = v
         .and_then(|j| {
             j.get("avg_frame_rate")
@@ -1408,7 +1570,11 @@ fn build_video_stream_from_json(
                 .and_then(parse_frame_rate)
         })
         .map(|f| f as f32);
-    let time_base = v.and_then(|j| j.get("time_base").and_then(|t| t.as_str()).map(String::from));
+    let time_base = v.and_then(|j| {
+        j.get("time_base")
+            .and_then(|t| t.as_str())
+            .map(String::from)
+    });
     let is_hdr = color_transfer
         .as_deref()
         .is_some_and(|ct| ct.contains("smpte") || ct == "arib-std-b67");
@@ -1477,7 +1643,10 @@ fn build_audio_streams_from_json(
     };
     let mut stream_idx = start_idx;
     for a in audio {
-        let codec = a.get("codec_name").and_then(|c| c.as_str()).unwrap_or("aac");
+        let codec = a
+            .get("codec_name")
+            .and_then(|c| c.as_str())
+            .unwrap_or("aac");
         let json_idx = a
             .get("index")
             .and_then(serde_json::Value::as_i64)
@@ -1509,7 +1678,10 @@ fn build_audio_streams_from_json(
                     .and_then(|b| b.as_str())
                     .and_then(|s| s.parse::<i64>().ok())
             });
-        let channels = a.get("channels").and_then(serde_json::Value::as_i64).map(|c| c as i32);
+        let channels = a
+            .get("channels")
+            .and_then(serde_json::Value::as_i64)
+            .map(|c| c as i32);
         let sample_rate = a
             .get("sample_rate")
             .and_then(|s| s.as_str())
@@ -1519,7 +1691,10 @@ fn build_audio_streams_from_json(
                     .and_then(serde_json::Value::as_i64)
                     .map(|s| s as i32)
             });
-        let raw_layout = a.get("channel_layout").and_then(|l| l.as_str()).unwrap_or("");
+        let raw_layout = a
+            .get("channel_layout")
+            .and_then(|l| l.as_str())
+            .unwrap_or("");
         let channel_layout = if raw_layout.starts_with("7.1") {
             Some("7.1".to_string())
         } else if raw_layout.starts_with("5.1") {
@@ -1620,24 +1795,33 @@ async fn enrich_with_media_sources(
     fn uuids_to_pg_array(ids: &[Uuid]) -> sea_orm::Value {
         let s = format!(
             "{{{}}}",
-            ids.iter().map(ToString::to_string).collect::<Vec<_>>().join(",")
+            ids.iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(",")
         );
         s.into()
     }
 
-    let (where_clause, params): (&str, Vec<sea_orm::Value>) = match (video_item_ids.is_empty(), episode_ids.is_empty())
-    {
-        (false, false) => (
-            "(vf.video_item_id = ANY($1::uuid[]) OR vf.episode_id = ANY($2::uuid[]))",
-            vec![uuids_to_pg_array(&video_item_ids), uuids_to_pg_array(&episode_ids)],
-        ),
-        (false, true) => (
-            "vf.video_item_id = ANY($1::uuid[])",
-            vec![uuids_to_pg_array(&video_item_ids)],
-        ),
-        (true, false) => ("vf.episode_id = ANY($1::uuid[])", vec![uuids_to_pg_array(&episode_ids)]),
-        (true, true) => unreachable!(),
-    };
+    let (where_clause, params): (&str, Vec<sea_orm::Value>) =
+        match (video_item_ids.is_empty(), episode_ids.is_empty()) {
+            (false, false) => (
+                "(vf.video_item_id = ANY($1::uuid[]) OR vf.episode_id = ANY($2::uuid[]))",
+                vec![
+                    uuids_to_pg_array(&video_item_ids),
+                    uuids_to_pg_array(&episode_ids),
+                ],
+            ),
+            (false, true) => (
+                "vf.video_item_id = ANY($1::uuid[])",
+                vec![uuids_to_pg_array(&video_item_ids)],
+            ),
+            (true, false) => (
+                "vf.episode_id = ANY($1::uuid[])",
+                vec![uuids_to_pg_array(&episode_ids)],
+            ),
+            (true, true) => unreachable!(),
+        };
 
     let sql = format!(
         r"SELECT vf.id, vf.video_item_id, vf.episode_id, vf.path, vf.filename, vf.size, vf.duration,
@@ -1649,7 +1833,11 @@ async fn enrich_with_media_sources(
          ORDER BY vf.size DESC"
     );
     let rows = db
-        .query_all_raw(Statement::from_sql_and_values(DatabaseBackend::Postgres, &sql, params))
+        .query_all_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            &sql,
+            params,
+        ))
         .await?;
 
     // Group by item id (first movie_id, then episode_id)
@@ -1668,8 +1856,10 @@ async fn enrich_with_media_sources(
         let video_width: Option<i32> = r.try_get("", "video_width").ok().flatten();
         let video_height: Option<i32> = r.try_get("", "video_height").ok().flatten();
         let video_profile: Option<String> = r.try_get("", "video_profile").ok().flatten();
-        let video_streams_json: Option<serde_json::Value> = r.try_get("", "video_streams").ok().flatten();
-        let audio_streams_json: Option<serde_json::Value> = r.try_get("", "audio_streams").ok().flatten();
+        let video_streams_json: Option<serde_json::Value> =
+            r.try_get("", "video_streams").ok().flatten();
+        let audio_streams_json: Option<serde_json::Value> =
+            r.try_get("", "audio_streams").ok().flatten();
 
         let container = filename.rsplit('.').next().unwrap_or("mkv").to_lowercase();
 
@@ -1689,10 +1879,12 @@ async fn enrich_with_media_sources(
         }
 
         // Audio streams
-        let (audio_streams, default_audio_idx) = build_audio_streams_from_json(&audio_streams_json, next_idx);
+        let (audio_streams, default_audio_idx) =
+            build_audio_streams_from_json(&audio_streams_json, next_idx);
         streams.extend(audio_streams);
 
-        let bitrate = size.and_then(|s| duration.map(|d| if d > 0 { s * 8 / i64::from(d) } else { 0 }));
+        let bitrate =
+            size.and_then(|s| duration.map(|d| if d > 0 { s * 8 / i64::from(d) } else { 0 }));
 
         let ms = MediaSourceInfo {
             protocol: "File".to_string(),
@@ -1746,7 +1938,10 @@ async fn enrich_with_media_sources(
                 if item.run_time_ticks.is_none() {
                     item.run_time_ticks = first.run_time_ticks;
                 }
-                let has_subs = first.media_streams.iter().any(|s| s.stream_type == "Subtitle");
+                let has_subs = first
+                    .media_streams
+                    .iter()
+                    .any(|s| s.stream_type == "Subtitle");
                 item.has_subtitles = Some(has_subs);
             }
             item.media_sources = Some(sources);
@@ -1758,7 +1953,10 @@ async fn enrich_with_media_sources(
 
 /// Batch-load genres for Movie and Series items.
 /// Sets `genres` (name list) and `genre_items` ({Name, Id} list) on each matching item.
-async fn enrich_with_genres(db: &sea_orm::DatabaseConnection, items: &mut [BaseItemDto]) -> Result<(), sea_orm::DbErr> {
+async fn enrich_with_genres(
+    db: &sea_orm::DatabaseConnection,
+    items: &mut [BaseItemDto],
+) -> Result<(), sea_orm::DbErr> {
     let mut video_item_ids: Vec<Uuid> = Vec::new();
     let mut series_ids: Vec<Uuid> = Vec::new();
 
@@ -1778,7 +1976,10 @@ async fn enrich_with_genres(db: &sea_orm::DatabaseConnection, items: &mut [BaseI
     fn ids_to_pg_array(ids: &[Uuid]) -> sea_orm::Value {
         let s = format!(
             "{{{}}}",
-            ids.iter().map(ToString::to_string).collect::<Vec<_>>().join(",")
+            ids.iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(",")
         );
         s.into()
     }
@@ -1796,7 +1997,10 @@ async fn enrich_with_genres(db: &sea_orm::DatabaseConnection, items: &mut [BaseI
             let video_item_id: Uuid = r.try_get("", "video_item_id").unwrap();
             let genre_id: Uuid = r.try_get("", "id").unwrap();
             let tmdb_id: i32 = r.try_get("", "tmdb_genre_id").unwrap_or(0);
-            genre_map.entry(video_item_id).or_default().push((genre_id, tmdb_id));
+            genre_map
+                .entry(video_item_id)
+                .or_default()
+                .push((genre_id, tmdb_id));
         }
     }
 
@@ -1813,7 +2017,10 @@ async fn enrich_with_genres(db: &sea_orm::DatabaseConnection, items: &mut [BaseI
             let show_id: Uuid = r.try_get("", "tv_show_id").unwrap();
             let genre_id: Uuid = r.try_get("", "id").unwrap();
             let tmdb_id: i32 = r.try_get("", "tmdb_genre_id").unwrap_or(0);
-            genre_map.entry(show_id).or_default().push((genre_id, tmdb_id));
+            genre_map
+                .entry(show_id)
+                .or_default()
+                .push((genre_id, tmdb_id));
         }
     }
 
@@ -1880,7 +2087,10 @@ async fn fetch_items_by_person(
         .query_all_raw(Statement::from_string(DatabaseBackend::Postgres, movie_sql))
         .await?;
 
-    let mut all_items: Vec<BaseItemDto> = movie_rows.iter().map(|r| movie_row_to_dto(r, server_id)).collect();
+    let mut all_items: Vec<BaseItemDto> = movie_rows
+        .iter()
+        .map(|r| movie_row_to_dto(r, server_id))
+        .collect();
 
     // --- TV shows featuring this person (de-duplicate by show) ---
     let tv_sql = format!(
@@ -1912,7 +2122,10 @@ async fn fetch_items_by_person(
         let key = match sort_field {
             "DateCreated" => dto.date_created.clone().unwrap_or_default(),
             "PremiereDate" => dto.premiere_date.clone().unwrap_or_default(),
-            "CommunityRating" => dto.community_rating.map(|r| format!("{r:010.6}")).unwrap_or_default(),
+            "CommunityRating" => dto
+                .community_rating
+                .map(|r| format!("{r:010.6}"))
+                .unwrap_or_default(),
             _ => dto.sort_name.clone().unwrap_or_else(|| dto.name.clone()),
         };
         key.to_lowercase()
@@ -1946,7 +2159,9 @@ async fn fetch_video_items(
         idx += 1;
     }
     if !p.search_term.is_empty() {
-        conditions.push(format!("(m.title ILIKE ${idx} OR m.original_title ILIKE ${idx})"));
+        conditions.push(format!(
+            "(m.title ILIKE ${idx} OR m.original_title ILIKE ${idx})"
+        ));
         params.push(format!("%{}%", p.search_term).into());
         idx += 1;
     }
@@ -1974,7 +2189,8 @@ async fn fetch_video_items(
 
     // Count
     let count_sql = format!("SELECT COUNT(*) as cnt FROM video_items m {where_clause}");
-    let count_stmt = Statement::from_sql_and_values(DatabaseBackend::Postgres, &count_sql, params.clone());
+    let count_stmt =
+        Statement::from_sql_and_values(DatabaseBackend::Postgres, &count_sql, params.clone());
     let total: i64 = db
         .query_one_raw(count_stmt)
         .await?
@@ -2003,7 +2219,11 @@ async fn fetch_video_items(
     );
 
     let rows = db
-        .query_all_raw(Statement::from_sql_and_values(DatabaseBackend::Postgres, &sql, params))
+        .query_all_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            &sql,
+            params,
+        ))
         .await?;
     let mut items = Vec::with_capacity(rows.len());
     for r in &rows {
@@ -2030,14 +2250,16 @@ fn movie_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> BaseItemDto {
     let is_favorite: bool = r.try_get("", "is_favorite").unwrap_or(false);
     let tmdb_id: Option<String> = r.try_get("", "tmdb_id").ok().flatten();
     let imdb_id: Option<String> = r.try_get("", "imdb_id").ok().flatten();
-    let created_at: Option<chrono::DateTime<chrono::FixedOffset>> = r.try_get("", "created_at").ok().flatten();
+    let created_at: Option<chrono::DateTime<chrono::FixedOffset>> =
+        r.try_get("", "created_at").ok().flatten();
     let video_id: Option<Uuid> = r.try_get("", "video_id").ok();
     let release_date: Option<chrono::NaiveDate> = r.try_get("", "release_date").ok().flatten();
 
     let resume_position: i32 = r.try_get("", "resume_position").unwrap_or(0);
     let play_count: i32 = r.try_get("", "play_count").unwrap_or(0);
     let is_watched: bool = r.try_get("", "is_watched").unwrap_or(false);
-    let last_watch_at: Option<chrono::DateTime<chrono::FixedOffset>> = r.try_get("", "last_watch_at").ok().flatten();
+    let last_watch_at: Option<chrono::DateTime<chrono::FixedOffset>> =
+        r.try_get("", "last_watch_at").ok().flatten();
 
     let mut image_tags = HashMap::new();
     if poster_path.is_some() {
@@ -2145,7 +2367,10 @@ async fn fetch_all_seasons_in_library(
         ))
         .await?;
 
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| season_row_to_dto(r, server_id)).collect();
+    let items: Vec<BaseItemDto> = rows
+        .iter()
+        .map(|r| season_row_to_dto(r, server_id))
+        .collect();
     Ok((items, total))
 }
 
@@ -2190,10 +2415,18 @@ async fn fetch_all_episodes_in_library(
         .query_all_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             sql,
-            [library_id.into(), user_id.into(), limit.into(), start.into()],
+            [
+                library_id.into(),
+                user_id.into(),
+                limit.into(),
+                start.into(),
+            ],
         ))
         .await?;
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| episode_row_to_dto(r, server_id)).collect();
+    let items: Vec<BaseItemDto> = rows
+        .iter()
+        .map(|r| episode_row_to_dto(r, server_id))
+        .collect();
     Ok((items, total))
 }
 
@@ -2211,7 +2444,9 @@ async fn fetch_tv_shows(
         idx += 1;
     }
     if !p.search_term.is_empty() {
-        conditions.push(format!("(t.title ILIKE ${idx} OR t.original_title ILIKE ${idx})"));
+        conditions.push(format!(
+            "(t.title ILIKE ${idx} OR t.original_title ILIKE ${idx})"
+        ));
         params.push(format!("%{}%", p.search_term).into());
         idx += 1;
     }
@@ -2231,7 +2466,8 @@ async fn fetch_tv_shows(
     };
 
     let count_sql = format!("SELECT COUNT(*) as cnt FROM tv_shows t {where_clause}");
-    let count_stmt = Statement::from_sql_and_values(DatabaseBackend::Postgres, &count_sql, params.clone());
+    let count_stmt =
+        Statement::from_sql_and_values(DatabaseBackend::Postgres, &count_sql, params.clone());
     let total: i64 = db
         .query_one_raw(count_stmt)
         .await?
@@ -2259,9 +2495,16 @@ async fn fetch_tv_shows(
     );
 
     let rows = db
-        .query_all_raw(Statement::from_sql_and_values(DatabaseBackend::Postgres, &sql, params))
+        .query_all_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            &sql,
+            params,
+        ))
         .await?;
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| tv_show_row_to_dto(r, p.server_id)).collect();
+    let items: Vec<BaseItemDto> = rows
+        .iter()
+        .map(|r| tv_show_row_to_dto(r, p.server_id))
+        .collect();
     Ok((items, total))
 }
 
@@ -2283,7 +2526,8 @@ fn tv_show_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> BaseItemDto 
     let tmdb_id: Option<String> = r.try_get("", "tmdb_id").ok().flatten();
     let imdb_id: Option<String> = r.try_get("", "imdb_id").ok().flatten();
     let tvdb_id: Option<String> = r.try_get("", "tvdb_id").ok().flatten();
-    let created_at: Option<chrono::DateTime<chrono::FixedOffset>> = r.try_get("", "created_at").ok().flatten();
+    let created_at: Option<chrono::DateTime<chrono::FixedOffset>> =
+        r.try_get("", "created_at").ok().flatten();
     let video_id: Option<Uuid> = r.try_get("", "video_id").ok();
     let first_air_date: Option<chrono::NaiveDate> = r.try_get("", "first_air_date").ok().flatten();
     let season_count: Option<i64> = r.try_get("", "season_count").ok();
@@ -2340,7 +2584,11 @@ fn tv_show_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> BaseItemDto 
         display_order: Some("aired".to_string()),
         user_data: Some(UserItemDataDto {
             is_favorite,
-            key: tmdb_id.as_deref().or(tvdb_id.as_deref()).unwrap_or(&id_str).to_string(),
+            key: tmdb_id
+                .as_deref()
+                .or(tvdb_id.as_deref())
+                .unwrap_or(&id_str)
+                .to_string(),
             item_id: id_str,
             ..Default::default()
         }),
@@ -2377,7 +2625,10 @@ async fn fetch_seasons_for_series(
         .await?;
 
     let total = rows.len() as i64;
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| season_row_to_dto(r, server_id)).collect();
+    let items: Vec<BaseItemDto> = rows
+        .iter()
+        .map(|r| season_row_to_dto(r, server_id))
+        .collect();
     Ok((items, total))
 }
 
@@ -2409,7 +2660,10 @@ async fn fetch_episodes_for_season(
         .await?;
 
     let total = rows.len() as i64;
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| episode_row_to_dto(r, server_id)).collect();
+    let items: Vec<BaseItemDto> = rows
+        .iter()
+        .map(|r| episode_row_to_dto(r, server_id))
+        .collect();
     Ok((items, total))
 }
 
@@ -2441,7 +2695,10 @@ async fn fetch_episodes_for_series(
         .await?;
 
     let total = rows.len() as i64;
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| episode_row_to_dto(r, server_id)).collect();
+    let items: Vec<BaseItemDto> = rows
+        .iter()
+        .map(|r| episode_row_to_dto(r, server_id))
+        .collect();
     Ok((items, total))
 }
 
@@ -2463,7 +2720,8 @@ fn episode_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> BaseItemDto 
     let resume_position: i32 = r.try_get("", "resume_position").unwrap_or(0);
     let play_count: i32 = r.try_get("", "play_count").unwrap_or(0);
     let is_watched: bool = r.try_get("", "is_watched").unwrap_or(false);
-    let last_watch_at: Option<chrono::DateTime<chrono::FixedOffset>> = r.try_get("", "last_watch_at").ok().flatten();
+    let last_watch_at: Option<chrono::DateTime<chrono::FixedOffset>> =
+        r.try_get("", "last_watch_at").ok().flatten();
 
     // has_file is present when the query includes the EXISTS subquery; fall back to true
     // if the column is absent (e.g. fetch_items_by_ids path which always finds a real file).
@@ -2582,9 +2840,16 @@ async fn fetch_all_episodes(
     );
 
     let rows = db
-        .query_all_raw(Statement::from_sql_and_values(DatabaseBackend::Postgres, &sql, params))
+        .query_all_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            &sql,
+            params,
+        ))
         .await?;
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| episode_row_to_dto(r, server_id)).collect();
+    let items: Vec<BaseItemDto> = rows
+        .iter()
+        .map(|r| episode_row_to_dto(r, server_id))
+        .collect();
     Ok((items, total))
 }
 
@@ -2609,7 +2874,8 @@ async fn fetch_resumable(
     };
     let (video_items, video_total) = fetch_video_items(db, &fp).await?;
     // Fetch resumable episodes
-    let (episodes, ep_total) = fetch_all_episodes(db, "", true, user_id, server_id, start, limit).await?;
+    let (episodes, ep_total) =
+        fetch_all_episodes(db, "", true, user_id, server_id, start, limit).await?;
 
     let mut combined = video_items;
     combined.extend(episodes);
@@ -2904,7 +3170,13 @@ pub async fn get_latest_items<S: JellyfinAppState>(
             if let Err(e) = enrich_with_media_sources(db, &mut items).await {
                 tracing::error!("enrich_with_media_sources latest: {e}");
             }
-            Json(items.into_iter().map(media_list_item_to_json).collect::<Vec<_>>()).into_response()
+            Json(
+                items
+                    .into_iter()
+                    .map(media_list_item_to_json)
+                    .collect::<Vec<_>>(),
+            )
+            .into_response()
         }
         Err(e) => {
             tracing::error!("jellyfin get_latest_items: {e}");
@@ -2979,7 +3251,10 @@ async fn fetch_single_movie(
         .query_one_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             sql,
-            [id.parse::<Uuid>().unwrap_or_default().into(), user_id.into()],
+            [
+                id.parse::<Uuid>().unwrap_or_default().into(),
+                user_id.into(),
+            ],
         ))
         .await?;
     Ok(row.as_ref().map(|r| movie_row_to_dto(r, server_id)))
@@ -3148,7 +3423,9 @@ pub async fn get_resume_items<S: JellyfinAppState>(
 
 /// `GET /jellyfin/Users/{userId}/Suggestions` and `GET /jellyfin/Items/Suggestions`
 /// Return empty — we don't implement a recommendation engine.
-pub async fn get_suggestions<S: JellyfinAppState>(JellyfinAuth(_user, _): JellyfinAuth<S>) -> impl IntoResponse {
+pub async fn get_suggestions<S: JellyfinAppState>(
+    JellyfinAuth(_user, _): JellyfinAuth<S>,
+) -> impl IntoResponse {
     Json(QueryResult::<BaseItemDto> {
         items: vec![],
         total_record_count: 0,

@@ -82,76 +82,216 @@ pub struct JellyfinUser {
 /// Build all Jellyfin-compatible routes under `/jellyfin/`.
 pub fn build_jellyfin_routes<S: JellyfinAppState>() -> Router<Arc<S>> {
     let public = Router::new()
-        .route("/jellyfin/System/Info/Public", axum::routing::get(system::get_public_info::<S>))
-        .route("/jellyfin/System/Ping", axum::routing::get(system::ping).post(system::ping))
-        .route("/jellyfin/Users/Public", axum::routing::get(users::get_public_users::<S>))
+        .route(
+            "/jellyfin/System/Info/Public",
+            axum::routing::get(system::get_public_info::<S>),
+        )
+        .route(
+            "/jellyfin/System/Ping",
+            axum::routing::get(system::ping).post(system::ping),
+        )
+        .route(
+            "/jellyfin/Users/Public",
+            axum::routing::get(users::get_public_users::<S>),
+        )
         .route(
             "/jellyfin/Users/AuthenticateByName",
             axum::routing::post(users::authenticate_by_name::<S>),
         )
         // Infuse probes these on connect (no auth required fallback)
         .route("/jellyfin/Plugins", axum::routing::get(system::get_plugins))
-        .route("/jellyfin/Packages", axum::routing::get(system::get_packages))
-        .route("/jellyfin/Branding/Configuration", axum::routing::get(system::get_branding_config));
+        .route(
+            "/jellyfin/Packages",
+            axum::routing::get(system::get_packages),
+        )
+        .route(
+            "/jellyfin/Branding/Configuration",
+            axum::routing::get(system::get_branding_config),
+        );
 
     let authed = Router::new()
-        .route("/jellyfin/System/Info", axum::routing::get(system::get_system_info::<S>))
-        .route("/jellyfin/Sessions/Capabilities", axum::routing::post(system::post_capabilities::<S>))
-        .route("/jellyfin/Sessions/Capabilities/Full", axum::routing::post(system::post_capabilities_full::<S>))
-        .route("/jellyfin/Sessions/Logout", axum::routing::post(system::post_logout::<S>))
+        .route(
+            "/jellyfin/System/Info",
+            axum::routing::get(system::get_system_info::<S>),
+        )
+        .route(
+            "/jellyfin/Sessions/Capabilities",
+            axum::routing::post(system::post_capabilities::<S>),
+        )
+        .route(
+            "/jellyfin/Sessions/Capabilities/Full",
+            axum::routing::post(system::post_capabilities_full::<S>),
+        )
+        .route(
+            "/jellyfin/Sessions/Logout",
+            axum::routing::post(system::post_logout::<S>),
+        )
         // GroupingOptions — return [] (no grouped views)
-        .route("/jellyfin/UserViews/GroupingOptions", axum::routing::get(system::get_grouping_options::<S>))
-        .route("/jellyfin/Users/{userId}/GroupingOptions", axum::routing::get(system::get_grouping_options::<S>))
+        .route(
+            "/jellyfin/UserViews/GroupingOptions",
+            axum::routing::get(system::get_grouping_options::<S>),
+        )
+        .route(
+            "/jellyfin/Users/{userId}/GroupingOptions",
+            axum::routing::get(system::get_grouping_options::<S>),
+        )
         // Library virtual folders
-        .route("/jellyfin/Library/VirtualFolders", axum::routing::get(system::get_virtual_folders::<S>))
+        .route(
+            "/jellyfin/Library/VirtualFolders",
+            axum::routing::get(system::get_virtual_folders::<S>),
+        )
         // DisplayPreferences — stub
-        .route("/jellyfin/DisplayPreferences/{displayPreferencesId}", axum::routing::get(system::get_display_preferences::<S>).post(system::post_display_preferences::<S>))
+        .route(
+            "/jellyfin/DisplayPreferences/{displayPreferencesId}",
+            axum::routing::get(system::get_display_preferences::<S>)
+                .post(system::post_display_preferences::<S>),
+        )
         .route("/jellyfin/Users/Me", axum::routing::get(users::get_me::<S>))
-        .route("/jellyfin/Users/{userId}", axum::routing::get(users::get_user::<S>))
+        .route(
+            "/jellyfin/Users/{userId}",
+            axum::routing::get(users::get_user::<S>),
+        )
         // Library views
-        .route("/jellyfin/UserViews", axum::routing::get(items::get_user_views::<S>))
-        .route("/jellyfin/Users/{userId}/Views", axum::routing::get(items::get_user_views::<S>))
+        .route(
+            "/jellyfin/UserViews",
+            axum::routing::get(items::get_user_views::<S>),
+        )
+        .route(
+            "/jellyfin/Users/{userId}/Views",
+            axum::routing::get(items::get_user_views::<S>),
+        )
         // Items root
-        .route("/jellyfin/Items/Root", axum::routing::get(items::get_items_root::<S>))
-        .route("/jellyfin/Users/{userId}/Items/Root", axum::routing::get(items::get_items_root::<S>))
+        .route(
+            "/jellyfin/Items/Root",
+            axum::routing::get(items::get_items_root::<S>),
+        )
+        .route(
+            "/jellyfin/Users/{userId}/Items/Root",
+            axum::routing::get(items::get_items_root::<S>),
+        )
         // Items browse
         .route("/jellyfin/Items", axum::routing::get(items::get_items::<S>))
-        .route("/jellyfin/Users/{userId}/Items", axum::routing::get(items::get_items::<S>))
+        .route(
+            "/jellyfin/Users/{userId}/Items",
+            axum::routing::get(items::get_items::<S>),
+        )
         // Single item — must register specific paths before the wildcard /{itemId}
-        .route("/jellyfin/Items/Latest", axum::routing::get(items::get_latest_items::<S>))
-        .route("/jellyfin/Users/{userId}/Items/Latest", axum::routing::get(items::get_latest_items::<S>))
-        .route("/jellyfin/UserItems/Resume", axum::routing::get(items::get_resume_items::<S>))
-        .route("/jellyfin/Users/{userId}/Items/Resume", axum::routing::get(items::get_resume_items::<S>))
-        .route("/jellyfin/Items/{itemId}", axum::routing::get(items::get_item::<S>))
-        .route("/jellyfin/Users/{userId}/Items/{itemId}", axum::routing::get(items::get_user_item::<S>))
+        .route(
+            "/jellyfin/Items/Latest",
+            axum::routing::get(items::get_latest_items::<S>),
+        )
+        .route(
+            "/jellyfin/Users/{userId}/Items/Latest",
+            axum::routing::get(items::get_latest_items::<S>),
+        )
+        .route(
+            "/jellyfin/UserItems/Resume",
+            axum::routing::get(items::get_resume_items::<S>),
+        )
+        .route(
+            "/jellyfin/Users/{userId}/Items/Resume",
+            axum::routing::get(items::get_resume_items::<S>),
+        )
+        .route(
+            "/jellyfin/Items/{itemId}",
+            axum::routing::get(items::get_item::<S>),
+        )
+        .route(
+            "/jellyfin/Users/{userId}/Items/{itemId}",
+            axum::routing::get(items::get_user_item::<S>),
+        )
         // Trailers / special features — return empty
-        .route("/jellyfin/Items/{itemId}/LocalTrailers", axum::routing::get(items::get_item_local_trailers::<S>))
-        .route("/jellyfin/Items/{itemId}/SpecialFeatures", axum::routing::get(items::get_item_special_features::<S>))
-        .route("/jellyfin/Users/{userId}/Items/{itemId}/LocalTrailers", axum::routing::get(items::get_user_item_local_trailers::<S>))
-        .route("/jellyfin/Users/{userId}/Items/{itemId}/SpecialFeatures", axum::routing::get(items::get_user_item_special_features::<S>))
+        .route(
+            "/jellyfin/Items/{itemId}/LocalTrailers",
+            axum::routing::get(items::get_item_local_trailers::<S>),
+        )
+        .route(
+            "/jellyfin/Items/{itemId}/SpecialFeatures",
+            axum::routing::get(items::get_item_special_features::<S>),
+        )
+        .route(
+            "/jellyfin/Users/{userId}/Items/{itemId}/LocalTrailers",
+            axum::routing::get(items::get_user_item_local_trailers::<S>),
+        )
+        .route(
+            "/jellyfin/Users/{userId}/Items/{itemId}/SpecialFeatures",
+            axum::routing::get(items::get_user_item_special_features::<S>),
+        )
         // TV Shows
-        .route("/jellyfin/Shows/{seriesId}/Seasons", axum::routing::get(items::get_seasons::<S>))
-        .route("/jellyfin/Shows/{seriesId}/Episodes", axum::routing::get(items::get_episodes::<S>))
-        .route("/jellyfin/Shows/NextUp", axum::routing::get(items::get_next_up::<S>))
-        .route("/jellyfin/Shows/Upcoming", axum::routing::get(items::get_upcoming::<S>))
+        .route(
+            "/jellyfin/Shows/{seriesId}/Seasons",
+            axum::routing::get(items::get_seasons::<S>),
+        )
+        .route(
+            "/jellyfin/Shows/{seriesId}/Episodes",
+            axum::routing::get(items::get_episodes::<S>),
+        )
+        .route(
+            "/jellyfin/Shows/NextUp",
+            axum::routing::get(items::get_next_up::<S>),
+        )
+        .route(
+            "/jellyfin/Shows/Upcoming",
+            axum::routing::get(items::get_upcoming::<S>),
+        )
         // Suggestions — return empty
-        .route("/jellyfin/Items/Suggestions", axum::routing::get(items::get_suggestions::<S>))
-        .route("/jellyfin/Users/{userId}/Suggestions", axum::routing::get(items::get_suggestions::<S>))
+        .route(
+            "/jellyfin/Items/Suggestions",
+            axum::routing::get(items::get_suggestions::<S>),
+        )
+        .route(
+            "/jellyfin/Users/{userId}/Suggestions",
+            axum::routing::get(items::get_suggestions::<S>),
+        )
         // Images
-        .route("/jellyfin/Items/{itemId}/Images/{imageType}", axum::routing::get(images::get_item_image::<S>))
-        .route("/jellyfin/Items/{itemId}/Images/{imageType}/{imageIndex}", axum::routing::get(images::get_item_image_by_index::<S>))
+        .route(
+            "/jellyfin/Items/{itemId}/Images/{imageType}",
+            axum::routing::get(images::get_item_image::<S>),
+        )
+        .route(
+            "/jellyfin/Items/{itemId}/Images/{imageType}/{imageIndex}",
+            axum::routing::get(images::get_item_image_by_index::<S>),
+        )
         // Playback info + stream
-        .route("/jellyfin/Items/{itemId}/PlaybackInfo", axum::routing::get(playback::get_playback_info::<S>).post(playback::post_playback_info::<S>))
-        .route("/jellyfin/Videos/{videoFileId}/stream", axum::routing::get(playback::stream_video::<S>))
-        .route("/jellyfin/Videos/{videoFileId}/stream.{container}", axum::routing::get(playback::stream_video_container::<S>))
+        .route(
+            "/jellyfin/Items/{itemId}/PlaybackInfo",
+            axum::routing::get(playback::get_playback_info::<S>)
+                .post(playback::post_playback_info::<S>),
+        )
+        .route(
+            "/jellyfin/Videos/{videoFileId}/stream",
+            axum::routing::get(playback::stream_video::<S>),
+        )
+        .route(
+            "/jellyfin/Videos/{videoFileId}/stream.{container}",
+            axum::routing::get(playback::stream_video_container::<S>),
+        )
         // Session / playstate
-        .route("/jellyfin/Sessions/Playing", axum::routing::post(session::on_playback_start::<S>))
-        .route("/jellyfin/Sessions/Playing/Progress", axum::routing::post(session::on_playback_progress::<S>))
-        .route("/jellyfin/Sessions/Playing/Stopped", axum::routing::post(session::on_playback_stopped::<S>))
-        .route("/jellyfin/UserPlayedItems/{itemId}", axum::routing::post(session::mark_played::<S>).delete(session::mark_unplayed::<S>))
-        .route("/jellyfin/Users/{userId}/PlayedItems/{itemId}", axum::routing::post(session::mark_played_legacy::<S>).delete(session::mark_unplayed_legacy::<S>));
+        .route(
+            "/jellyfin/Sessions/Playing",
+            axum::routing::post(session::on_playback_start::<S>),
+        )
+        .route(
+            "/jellyfin/Sessions/Playing/Progress",
+            axum::routing::post(session::on_playback_progress::<S>),
+        )
+        .route(
+            "/jellyfin/Sessions/Playing/Stopped",
+            axum::routing::post(session::on_playback_stopped::<S>),
+        )
+        .route(
+            "/jellyfin/UserPlayedItems/{itemId}",
+            axum::routing::post(session::mark_played::<S>).delete(session::mark_unplayed::<S>),
+        )
+        .route(
+            "/jellyfin/Users/{userId}/PlayedItems/{itemId}",
+            axum::routing::post(session::mark_played_legacy::<S>)
+                .delete(session::mark_unplayed_legacy::<S>),
+        );
 
-    public.merge(authed).layer(middleware::from_fn(jellyfin_request_logger))
+    public
+        .merge(authed)
+        .layer(middleware::from_fn(jellyfin_request_logger))
 }
 
 async fn jellyfin_request_logger(req: Request, next: Next) -> Response {
@@ -170,9 +310,15 @@ async fn jellyfin_request_logger(req: Request, next: Next) -> Response {
          ╚════════════════════════════════════════════════════════════",
         method,
         uri,
-        user_agent.as_ref().map_or("-", |v| v.to_str().unwrap_or("?")),
-        auth_header.as_ref().map_or("-", |v| v.to_str().unwrap_or("?")),
-        emby_token.as_ref().map_or("-", |v| v.to_str().unwrap_or("?")),
+        user_agent
+            .as_ref()
+            .map_or("-", |v| v.to_str().unwrap_or("?")),
+        auth_header
+            .as_ref()
+            .map_or("-", |v| v.to_str().unwrap_or("?")),
+        emby_token
+            .as_ref()
+            .map_or("-", |v| v.to_str().unwrap_or("?")),
     );
 
     let resp = next.run(req).await;

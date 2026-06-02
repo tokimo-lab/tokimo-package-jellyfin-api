@@ -15,8 +15,8 @@ use crate::{
     JellyfinAppState,
     auth::{self, JellyfinAuth, parse_mediabrowser_header},
     models::{
-        AuthenticateByNameRequest, AuthenticationResult, PlayStateDto, SessionCapabilities, SessionInfoDto,
-        UserConfiguration, UserDto, UserPolicy,
+        AuthenticateByNameRequest, AuthenticationResult, PlayStateDto, SessionCapabilities,
+        SessionInfoDto, UserConfiguration, UserDto, UserPolicy,
     },
 };
 
@@ -37,7 +37,9 @@ fn user_dto(user_id: Uuid, name: &str, last_login: Option<String>, server_id: &s
 }
 
 /// `GET /jellyfin/Users/Public`
-pub async fn get_public_users<S: JellyfinAppState>(State(state): State<Arc<S>>) -> impl IntoResponse {
+pub async fn get_public_users<S: JellyfinAppState>(
+    State(state): State<Arc<S>>,
+) -> impl IntoResponse {
     let db = state.db();
     let stmt = Statement::from_sql_and_values(
         DatabaseBackend::Postgres,
@@ -101,7 +103,8 @@ pub async fn authenticate_by_name<S: JellyfinAppState>(
     let user_id: Uuid = row.try_get("", "id").unwrap();
     let name: String = row.try_get("", "name").unwrap();
     let password_hash: String = row.try_get("", "password_hash").unwrap();
-    let last_login: Option<chrono::DateTime<chrono::FixedOffset>> = row.try_get("", "last_login_at").ok().flatten();
+    let last_login: Option<chrono::DateTime<chrono::FixedOffset>> =
+        row.try_get("", "last_login_at").ok().flatten();
 
     if !verify_password(&body.pw, &password_hash) {
         return (
@@ -132,7 +135,12 @@ pub async fn authenticate_by_name<S: JellyfinAppState>(
     }
 
     let now = chrono::Utc::now().to_rfc3339();
-    let user = user_dto(user_id, &name, last_login.map(|d| d.to_rfc3339()), state.server_id());
+    let user = user_dto(
+        user_id,
+        &name,
+        last_login.map(|d| d.to_rfc3339()),
+        state.server_id(),
+    );
 
     let user_id_str = user.id.clone();
     let session_id = Uuid::new_v4().to_string().replace('-', "");
@@ -218,7 +226,8 @@ async fn fetch_user(
     Ok(row.map(|r| {
         let id: Uuid = r.try_get("", "id").unwrap();
         let name: String = r.try_get("", "name").unwrap();
-        let last_login: Option<chrono::DateTime<chrono::FixedOffset>> = r.try_get("", "last_login_at").ok().flatten();
+        let last_login: Option<chrono::DateTime<chrono::FixedOffset>> =
+            r.try_get("", "last_login_at").ok().flatten();
         user_dto(id, &name, last_login.map(|d| d.to_rfc3339()), server_id)
     }))
 }
@@ -228,7 +237,9 @@ fn verify_password(password: &str, stored: &str) -> bool {
     if stored.starts_with("$argon2") {
         use argon2::{Argon2, PasswordHash, PasswordVerifier};
         if let Ok(parsed) = PasswordHash::new(stored) {
-            return Argon2::default().verify_password(password.as_bytes(), &parsed).is_ok();
+            return Argon2::default()
+                .verify_password(password.as_bytes(), &parsed)
+                .is_ok();
         }
         false
     } else {

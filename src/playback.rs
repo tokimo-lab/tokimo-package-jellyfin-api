@@ -196,8 +196,10 @@ async fn build_playback_info<S: JellyfinAppState>(
         let video_width: Option<i32> = r.try_get("", "video_width").ok().flatten();
         let video_height: Option<i32> = r.try_get("", "video_height").ok().flatten();
         let video_profile: Option<String> = r.try_get("", "video_profile").ok().flatten();
-        let video_streams_json: Option<serde_json::Value> = r.try_get("", "video_streams").ok().flatten();
-        let audio_streams_json: Option<serde_json::Value> = r.try_get("", "audio_streams").ok().flatten();
+        let video_streams_json: Option<serde_json::Value> =
+            r.try_get("", "video_streams").ok().flatten();
+        let audio_streams_json: Option<serde_json::Value> =
+            r.try_get("", "audio_streams").ok().flatten();
 
         let container = filename.rsplit('.').next().unwrap_or("mkv").to_lowercase();
 
@@ -239,8 +241,12 @@ async fn build_playback_info<S: JellyfinAppState>(
                     codec,
                     stream_idx,
                     false,
-                    v.get("width").and_then(serde_json::Value::as_i64).map(|w| w as i32),
-                    v.get("height").and_then(serde_json::Value::as_i64).map(|h| h as i32),
+                    v.get("width")
+                        .and_then(serde_json::Value::as_i64)
+                        .map(|w| w as i32),
+                    v.get("height")
+                        .and_then(serde_json::Value::as_i64)
+                        .map(|h| h as i32),
                     v.get("profile").and_then(|p| p.as_str()).map(String::from),
                     v.get("language").and_then(|l| l.as_str()).map(String::from),
                     None,
@@ -261,7 +267,9 @@ async fn build_playback_info<S: JellyfinAppState>(
                     a.get("language").and_then(|l| l.as_str()).map(String::from),
                     a.get("title").and_then(|t| t.as_str()).map(String::from),
                     a.get("bit_rate").and_then(serde_json::Value::as_i64),
-                    a.get("channels").and_then(serde_json::Value::as_i64).map(|c| c as i32),
+                    a.get("channels")
+                        .and_then(serde_json::Value::as_i64)
+                        .map(|c| c as i32),
                     a.get("sample_rate")
                         .and_then(serde_json::Value::as_i64)
                         .map(|s| s as i32),
@@ -270,7 +278,8 @@ async fn build_playback_info<S: JellyfinAppState>(
             }
         }
 
-        let bitrate = size.and_then(|s| duration.map(|d| if d > 0 { s * 8 / i64::from(d) } else { 0 }));
+        let bitrate =
+            size.and_then(|s| duration.map(|d| if d > 0 { s * 8 / i64::from(d) } else { 0 }));
 
         media_sources.push(MediaSourceInfo {
             protocol: "File".to_string(),
@@ -350,7 +359,12 @@ pub async fn stream_video<S: JellyfinAppState>(
     };
 
     let db = state.db();
-    if crate::auth::resolve_token(db, &api_key).await.ok().flatten().is_none() {
+    if crate::auth::resolve_token(db, &api_key)
+        .await
+        .ok()
+        .flatten()
+        .is_none()
+    {
         return StatusCode::UNAUTHORIZED.into_response();
     }
 

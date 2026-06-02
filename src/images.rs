@@ -30,7 +30,11 @@ pub async fn get_item_image_by_index<S: JellyfinAppState>(
     serve_image(state, &item_id, &image_type).await
 }
 
-async fn serve_image<S: JellyfinAppState>(state: Arc<S>, item_id: &str, image_type: &str) -> axum::response::Response {
+async fn serve_image<S: JellyfinAppState>(
+    state: Arc<S>,
+    item_id: &str,
+    image_type: &str,
+) -> axum::response::Response {
     let Ok(uid) = item_id.parse::<Uuid>() else {
         return StatusCode::BAD_REQUEST.into_response();
     };
@@ -62,7 +66,9 @@ async fn serve_image<S: JellyfinAppState>(state: Arc<S>, item_id: &str, image_ty
 
     match url {
         Some(url) => {
-            let entity_type = detect_entity_type(db, uid).await.unwrap_or("movie".to_string());
+            let entity_type = detect_entity_type(db, uid)
+                .await
+                .unwrap_or("movie".to_string());
             // Thumb endpoint requires w= (width) parameter; use sensible defaults
             let w = match art_type {
                 "backdrop" => 1280,
@@ -78,7 +84,11 @@ async fn serve_image<S: JellyfinAppState>(state: Arc<S>, item_id: &str, image_ty
     }
 }
 
-async fn try_media_arts(db: &sea_orm::DatabaseConnection, entity_id: Uuid, art_type: &str) -> Option<String> {
+async fn try_media_arts(
+    db: &sea_orm::DatabaseConnection,
+    entity_id: Uuid,
+    art_type: &str,
+) -> Option<String> {
     let sql = r"
         SELECT url FROM media_arts
         WHERE (movie_id = $1 OR tv_show_id = $1 OR season_id = $1 OR album_id = $1)
@@ -98,7 +108,11 @@ async fn try_media_arts(db: &sea_orm::DatabaseConnection, entity_id: Uuid, art_t
     row.try_get::<String>("", "url").ok()
 }
 
-async fn try_entity_image(db: &sea_orm::DatabaseConnection, entity_id: Uuid, art_type: &str) -> Option<String> {
+async fn try_entity_image(
+    db: &sea_orm::DatabaseConnection,
+    entity_id: Uuid,
+    art_type: &str,
+) -> Option<String> {
     let column = match art_type {
         "backdrop" => "backdrop_path",
         _ => "poster_path",
