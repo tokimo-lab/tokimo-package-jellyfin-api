@@ -1,0 +1,21 @@
+[package]
+name = "tokimo-package-jellyfin-api"
+version = "0.1.0"
+edition = "2024"
+description = "Jellyfin-compatible API layer for Tokimo"
+
+[lints]
+workspace = true
+
+[dependencies]
+argon2 = "0.5"
+axum = { version = "0.8", features = ["json"] }
+chrono = { workspace = true }
+http-body-util = "0.1"
+sea-orm = { version = "2.0.0-rc.38", features = ["sqlx-postgres", "runtime-tokio-rustls", "with-uuid", "with-json", "with-chrono"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+urlencoding = "2"
+uuid = { workspace = true }
