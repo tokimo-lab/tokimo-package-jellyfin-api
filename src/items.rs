@@ -2059,6 +2059,7 @@ struct FetchParams<'a> {
 /// Fetch movies and TV shows featuring a given person UUID.
 /// Queries both `video_cast` (video_persons) and `tv_season_cast` (tv_persons),
 /// then merges and sorts the results in-memory (person result sets are typically small).
+#[allow(clippy::too_many_arguments)]
 async fn fetch_items_by_person(
     db: &sea_orm::DatabaseConnection,
     person_id: Uuid,
