@@ -2884,6 +2884,7 @@ async fn fetch_resumable(
     Ok((combined, total))
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn fetch_all_media(
     db: &sea_orm::DatabaseConnection,
     search_term: &str,
