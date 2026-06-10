@@ -289,9 +289,7 @@ pub fn build_jellyfin_routes<S: JellyfinAppState>() -> Router<Arc<S>> {
                 .delete(session::mark_unplayed_legacy::<S>),
         );
 
-    public
-        .merge(authed)
-        .layer(middleware::from_fn(jellyfin_request_logger))
+    public.merge(authed).layer(middleware::from_fn(jellyfin_request_logger))
 }
 
 async fn jellyfin_request_logger(req: Request, next: Next) -> Response {
@@ -310,15 +308,9 @@ async fn jellyfin_request_logger(req: Request, next: Next) -> Response {
          ╚════════════════════════════════════════════════════════════",
         method,
         uri,
-        user_agent
-            .as_ref()
-            .map_or("-", |v| v.to_str().unwrap_or("?")),
-        auth_header
-            .as_ref()
-            .map_or("-", |v| v.to_str().unwrap_or("?")),
-        emby_token
-            .as_ref()
-            .map_or("-", |v| v.to_str().unwrap_or("?")),
+        user_agent.as_ref().map_or("-", |v| v.to_str().unwrap_or("?")),
+        auth_header.as_ref().map_or("-", |v| v.to_str().unwrap_or("?")),
+        emby_token.as_ref().map_or("-", |v| v.to_str().unwrap_or("?")),
     );
 
     let resp = next.run(req).await;

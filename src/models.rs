@@ -131,10 +131,10 @@ impl Default for UserPolicy {
             blocked_media_folders: vec![],
             blocked_channels: vec![],
             remote_client_bitrate_limit: 0,
-            authentication_provider_id:
-                "Jellyfin.Server.Implementations.Users.DefaultAuthenticationProvider".to_string(),
-            password_reset_provider_id:
-                "Jellyfin.Server.Implementations.Users.DefaultPasswordResetProvider".to_string(),
+            authentication_provider_id: "Jellyfin.Server.Implementations.Users.DefaultAuthenticationProvider"
+                .to_string(),
+            password_reset_provider_id: "Jellyfin.Server.Implementations.Users.DefaultPasswordResetProvider"
+                .to_string(),
             sync_play_access: "CreateAndJoinGroups".to_string(),
         }
     }
@@ -435,8 +435,7 @@ pub struct PersonDto {
     pub person_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub primary_image_tag: Option<String>,
-    pub image_blur_hashes:
-        std::collections::HashMap<String, std::collections::HashMap<String, String>>,
+    pub image_blur_hashes: std::collections::HashMap<String, std::collections::HashMap<String, String>>,
 }
 
 #[derive(Serialize, Clone, Default)]

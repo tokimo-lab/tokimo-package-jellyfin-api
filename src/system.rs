@@ -10,9 +10,7 @@ use crate::{JellyfinAppState, auth::JellyfinAuth, models::PublicSystemInfo};
 const JELLYFIN_VERSION: &str = "10.11.8";
 
 /// `GET /jellyfin/System/Info/Public`
-pub async fn get_public_info<S: JellyfinAppState>(
-    State(state): State<Arc<S>>,
-) -> impl IntoResponse {
+pub async fn get_public_info<S: JellyfinAppState>(State(state): State<Arc<S>>) -> impl IntoResponse {
     Json(PublicSystemInfo {
         local_address: state.public_base_url().to_string(),
         server_name: state.server_name().to_string(),
@@ -113,16 +111,12 @@ pub async fn get_branding_config() -> impl IntoResponse {
 }
 
 /// `POST /jellyfin/Sessions/Capabilities` — client reports capabilities, we ignore.
-pub async fn post_capabilities<S: JellyfinAppState>(
-    JellyfinAuth(_, _): JellyfinAuth<S>,
-) -> impl IntoResponse {
+pub async fn post_capabilities<S: JellyfinAppState>(JellyfinAuth(_, _): JellyfinAuth<S>) -> impl IntoResponse {
     StatusCode::NO_CONTENT
 }
 
 /// `POST /jellyfin/Sessions/Capabilities/Full` — same.
-pub async fn post_capabilities_full<S: JellyfinAppState>(
-    JellyfinAuth(_, _): JellyfinAuth<S>,
-) -> impl IntoResponse {
+pub async fn post_capabilities_full<S: JellyfinAppState>(JellyfinAuth(_, _): JellyfinAuth<S>) -> impl IntoResponse {
     StatusCode::NO_CONTENT
 }
 
@@ -144,9 +138,7 @@ pub async fn post_logout<S: JellyfinAppState>(
 
 /// `GET /jellyfin/UserViews/GroupingOptions` and `GET /jellyfin/Users/{userId}/GroupingOptions`
 /// We don't support grouped views, return empty array.
-pub async fn get_grouping_options<S: JellyfinAppState>(
-    JellyfinAuth(_user, _): JellyfinAuth<S>,
-) -> impl IntoResponse {
+pub async fn get_grouping_options<S: JellyfinAppState>(JellyfinAuth(_user, _): JellyfinAuth<S>) -> impl IntoResponse {
     Json(serde_json::Value::Array(vec![]))
 }
 
@@ -209,9 +201,8 @@ pub async fn get_virtual_folders<S: JellyfinAppState>(
                     let id: uuid::Uuid = r.try_get("", "id").ok()?;
                     let name: String = r.try_get("", "name").ok()?;
                     let app_type: String = r.try_get("", "type").ok()?;
-                    let locations: serde_json::Value = r
-                        .try_get("", "locations")
-                        .unwrap_or_else(|_| serde_json::json!([]));
+                    let locations: serde_json::Value =
+                        r.try_get("", "locations").unwrap_or_else(|_| serde_json::json!([]));
                     let collection_type = match app_type.as_str() {
                         "movie" => "movies",
                         "tv" => "tvshows",
