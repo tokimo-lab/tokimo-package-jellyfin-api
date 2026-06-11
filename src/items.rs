@@ -335,17 +335,33 @@ pub async fn get_items<S: JellyfinAppState>(
         }
         Some("tv") => {
             // TV library: route by requested item type
+            let Some(pid) = parent_id else {
+                tracing::error!("parent_id is required for TV library query but was None");
+                return StatusCode::BAD_REQUEST.into_response();
+            };
             if include_types.iter().any(|t| t.eq_ignore_ascii_case("Season")) {
-                fetch_all_seasons_in_library(db, parent_id.unwrap(), user_id, server_id, start, limit).await
+                fetch_all_seasons_in_library(db, pid, user_id, server_id, start, limit).await
             } else if include_types.iter().any(|t| t.eq_ignore_ascii_case("Episode")) {
-                fetch_all_episodes_in_library(db, parent_id.unwrap(), user_id, server_id, start, limit).await
+                fetch_all_episodes_in_library(db, pid, user_id, server_id, start, limit).await
             } else {
                 // Series or default
                 fetch_tv_shows(db, &fp).await
             }
         }
-        Some("series") => fetch_seasons_for_series(db, parent_id.unwrap(), user_id, server_id).await,
-        Some("season") => fetch_episodes_for_season(db, parent_id.unwrap(), user_id, server_id).await,
+        Some("series") => {
+            let Some(pid) = parent_id else {
+                tracing::error!("parent_id is required for series query but was None");
+                return StatusCode::BAD_REQUEST.into_response();
+            };
+            fetch_seasons_for_series(db, pid, user_id, server_id).await
+        }
+        Some("season") => {
+            let Some(pid) = parent_id else {
+                tracing::error!("parent_id is required for season query but was None");
+                return StatusCode::BAD_REQUEST.into_response();
+            };
+            fetch_episodes_for_season(db, pid, user_id, server_id).await
+        }
         _ => {
             // No parent or unknown — use IncludeItemTypes
             let fp_no_parent = FetchParams { video_id: None, ..fp };
@@ -762,7 +778,10 @@ async fn enrich_with_shape_fields(
             .await?;
 
         for row in &rows {
-            let id: Uuid = row.try_get("", "id").unwrap();
+            let id: Uuid = row.try_get("", "id").map_err(|e| {
+                tracing::error!("failed to get 'id' from row: {e}");
+                sea_orm::DbErr::Custom(e.to_string())
+            })?;
             let poster_path: Option<String> = row.try_get("", "poster_path").ok().flatten();
             let created_at: Option<chrono::DateTime<chrono::FixedOffset>> =
                 row.try_get("", "created_at").ok().flatten();
@@ -835,7 +854,10 @@ async fn enrich_with_shape_fields(
             .await?;
 
         for row in &rows {
-            let id: Uuid = row.try_get("", "id").unwrap();
+            let id: Uuid = row.try_get("", "id").map_err(|e| {
+                tracing::error!("failed to get 'id' from row: {e}");
+                sea_orm::DbErr::Custom(e.to_string())
+            })?;
             let douban_rating: Option<f64> = row.try_get("", "douban_rating").ok().flatten();
             let updated_at: Option<chrono::DateTime<chrono::FixedOffset>> =
                 row.try_get("", "updated_at").ok().flatten();
@@ -910,7 +932,10 @@ async fn enrich_with_shape_fields(
             .await?;
 
         for row in &rows {
-            let id: Uuid = row.try_get("", "id").unwrap();
+            let id: Uuid = row.try_get("", "id").map_err(|e| {
+                tracing::error!("failed to get 'id' from row: {e}");
+                sea_orm::DbErr::Custom(e.to_string())
+            })?;
             let last_air_date: Option<chrono::NaiveDate> = row.try_get("", "last_air_date").ok().flatten();
             let updated_at: Option<chrono::DateTime<chrono::FixedOffset>> =
                 row.try_get("", "updated_at").ok().flatten();
@@ -986,8 +1011,14 @@ async fn enrich_with_shape_fields(
             .await?;
 
         for row in &rows {
-            let id: Uuid = row.try_get("", "id").unwrap();
-            let tv_show_id: Uuid = row.try_get("", "tv_show_id").unwrap();
+            let id: Uuid = row.try_get("", "id").map_err(|e| {
+                tracing::error!("failed to get 'id' from row: {e}");
+                sea_orm::DbErr::Custom(e.to_string())
+            })?;
+            let tv_show_id: Uuid = row.try_get("", "tv_show_id").map_err(|e| {
+                tracing::error!("failed to get 'tv_show_id' from row: {e}");
+                sea_orm::DbErr::Custom(e.to_string())
+            })?;
             let air_date: Option<chrono::NaiveDate> = row.try_get("", "air_date").ok().flatten();
             let show_year: Option<i32> = row.try_get("", "show_year").ok().flatten();
             let series_poster_path: Option<String> = row.try_get("", "series_poster_path").ok().flatten();
@@ -1078,8 +1109,14 @@ async fn enrich_with_shape_fields(
             .await?;
 
         for row in &rows {
-            let id: Uuid = row.try_get("", "id").unwrap();
-            let tv_show_id: Uuid = row.try_get("", "tv_show_id").unwrap();
+            let id: Uuid = row.try_get("", "id").map_err(|e| {
+                tracing::error!("failed to get 'id' from row: {e}");
+                sea_orm::DbErr::Custom(e.to_string())
+            })?;
+            let tv_show_id: Uuid = row.try_get("", "tv_show_id").map_err(|e| {
+                tracing::error!("failed to get 'tv_show_id' from row: {e}");
+                sea_orm::DbErr::Custom(e.to_string())
+            })?;
             let air_date: Option<chrono::NaiveDate> = row.try_get("", "air_date").ok().flatten();
             let series_poster_path: Option<String> = row.try_get("", "series_poster_path").ok().flatten();
             let series_backdrop_path: Option<String> = row.try_get("", "series_backdrop_path").ok().flatten();
@@ -1146,10 +1183,16 @@ async fn enrich_with_shape_fields(
     Ok(())
 }
 
-fn season_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> BaseItemDto {
-    let id: Uuid = r.try_get("", "id").unwrap();
+fn season_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> Result<BaseItemDto, sea_orm::DbErr> {
+    let id: Uuid = r.try_get("", "id").map_err(|e| {
+        tracing::error!("failed to get 'id' from row: {e}");
+        sea_orm::DbErr::Custom(e.to_string())
+    })?;
     let id_str = id.to_string();
-    let tv_show_id: Uuid = r.try_get("", "tv_show_id").unwrap();
+    let tv_show_id: Uuid = r.try_get("", "tv_show_id").map_err(|e| {
+        tracing::error!("failed to get 'tv_show_id' from row: {e}");
+        sea_orm::DbErr::Custom(e.to_string())
+    })?;
     let season_number: i32 = r.try_get("", "season_number").unwrap_or(0);
     let title: Option<String> = r.try_get("", "title").ok().flatten();
     let overview: Option<String> = r.try_get("", "overview").ok().flatten();
@@ -1173,7 +1216,7 @@ fn season_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> BaseItemDto {
     }
     let tv_id = tv_show_id.to_string();
 
-    BaseItemDto {
+    Ok(BaseItemDto {
         name,
         server_id: server_id.to_string(),
         id: id_str.clone(),
@@ -1205,7 +1248,7 @@ fn season_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> BaseItemDto {
         },
         series_primary_image_tag: if series_poster.is_some() { Some(tv_id) } else { None },
         ..Default::default()
-    }
+    })
 }
 
 fn parse_frame_rate(s: &str) -> Option<f64> {
@@ -1655,7 +1698,10 @@ async fn enrich_with_media_sources(
     // Group by item id (first movie_id, then episode_id)
     let mut sources_map: HashMap<Uuid, Vec<MediaSourceInfo>> = HashMap::new();
     for r in &rows {
-        let vf_id: Uuid = r.try_get("", "id").unwrap();
+        let vf_id: Uuid = r.try_get("", "id").map_err(|e| {
+            tracing::error!("failed to get 'id' from row: {e}");
+            sea_orm::DbErr::Custom(e.to_string())
+        })?;
         let video_item_id: Option<Uuid> = r.try_get("", "video_item_id").ok().flatten();
         let episode_id: Option<Uuid> = r.try_get("", "episode_id").ok().flatten();
         let owner_id = video_item_id.or(episode_id).unwrap_or(vf_id);
@@ -1793,8 +1839,14 @@ async fn enrich_with_genres(db: &sea_orm::DatabaseConnection, items: &mut [BaseI
             ))
             .await?;
         for r in &rows {
-            let video_item_id: Uuid = r.try_get("", "video_item_id").unwrap();
-            let genre_id: Uuid = r.try_get("", "id").unwrap();
+            let video_item_id: Uuid = r.try_get("", "video_item_id").map_err(|e| {
+                tracing::error!("failed to get 'video_item_id' from row: {e}");
+                sea_orm::DbErr::Custom(e.to_string())
+            })?;
+            let genre_id: Uuid = r.try_get("", "id").map_err(|e| {
+                tracing::error!("failed to get 'id' from row: {e}");
+                sea_orm::DbErr::Custom(e.to_string())
+            })?;
             let tmdb_id: i32 = r.try_get("", "tmdb_genre_id").unwrap_or(0);
             genre_map.entry(video_item_id).or_default().push((genre_id, tmdb_id));
         }
@@ -1810,8 +1862,14 @@ async fn enrich_with_genres(db: &sea_orm::DatabaseConnection, items: &mut [BaseI
             ))
             .await?;
         for r in &rows {
-            let show_id: Uuid = r.try_get("", "tv_show_id").unwrap();
-            let genre_id: Uuid = r.try_get("", "id").unwrap();
+            let show_id: Uuid = r.try_get("", "tv_show_id").map_err(|e| {
+                tracing::error!("failed to get 'tv_show_id' from row: {e}");
+                sea_orm::DbErr::Custom(e.to_string())
+            })?;
+            let genre_id: Uuid = r.try_get("", "id").map_err(|e| {
+                tracing::error!("failed to get 'id' from row: {e}");
+                sea_orm::DbErr::Custom(e.to_string())
+            })?;
             let tmdb_id: i32 = r.try_get("", "tmdb_genre_id").unwrap_or(0);
             genre_map.entry(show_id).or_default().push((genre_id, tmdb_id));
         }
@@ -1881,7 +1939,7 @@ async fn fetch_items_by_person(
         .query_all_raw(Statement::from_string(DatabaseBackend::Postgres, movie_sql))
         .await?;
 
-    let mut all_items: Vec<BaseItemDto> = movie_rows.iter().map(|r| movie_row_to_dto(r, server_id)).collect();
+    let mut all_items: Vec<BaseItemDto> = movie_rows.iter().map(|r| movie_row_to_dto(r, server_id)).collect::<Result<Vec<_>, _>>()?;
 
     // --- TV shows featuring this person (de-duplicate by show) ---
     let tv_sql = format!(
@@ -1903,7 +1961,7 @@ async fn fetch_items_by_person(
         .await?;
 
     for r in &tv_rows {
-        all_items.push(tv_show_row_to_dto(r, server_id));
+        all_items.push(tv_show_row_to_dto(r, server_id)?);
     }
 
     let total = all_items.len() as i64;
@@ -2008,13 +2066,16 @@ async fn fetch_video_items(
         .await?;
     let mut items = Vec::with_capacity(rows.len());
     for r in &rows {
-        items.push(movie_row_to_dto(r, p.server_id));
+        items.push(movie_row_to_dto(r, p.server_id)?);
     }
     Ok((items, total))
 }
 
-fn movie_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> BaseItemDto {
-    let id: Uuid = r.try_get("", "id").unwrap();
+fn movie_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> Result<BaseItemDto, sea_orm::DbErr> {
+    let id: Uuid = r.try_get("", "id").map_err(|e| {
+        tracing::error!("failed to get 'id' from row: {e}");
+        sea_orm::DbErr::Custom(e.to_string())
+    })?;
     let id_str = id.to_string();
     let title: String = r.try_get("", "title").unwrap_or_default();
     let original_title: Option<String> = r.try_get("", "original_title").ok().flatten();
@@ -2062,7 +2123,7 @@ fn movie_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> BaseItemDto {
     // SortName falls back to title.to_lowercase() when not explicitly set
     let sort_name = sort_title.unwrap_or_else(|| title.to_lowercase());
 
-    BaseItemDto {
+    Ok(BaseItemDto {
         name: title,
         original_title,
         server_id: server_id.to_string(),
@@ -2095,7 +2156,7 @@ fn movie_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> BaseItemDto {
             last_watch_at,
         )),
         ..Default::default()
-    }
+    })
 }
 
 /// Fetch all seasons in a TV library (by video_id via tv_shows.video_id).
@@ -2146,7 +2207,7 @@ async fn fetch_all_seasons_in_library(
         ))
         .await?;
 
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| season_row_to_dto(r, server_id)).collect();
+    let items: Vec<BaseItemDto> = rows.iter().map(|r| season_row_to_dto(r, server_id)).collect::<Result<Vec<_>, _>>()?;
     Ok((items, total))
 }
 
@@ -2194,7 +2255,7 @@ async fn fetch_all_episodes_in_library(
             [library_id.into(), user_id.into(), limit.into(), start.into()],
         ))
         .await?;
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| episode_row_to_dto(r, server_id)).collect();
+    let items: Vec<BaseItemDto> = rows.iter().map(|r| episode_row_to_dto(r, server_id)).collect::<Result<Vec<_>, _>>()?;
     Ok((items, total))
 }
 
@@ -2262,12 +2323,15 @@ async fn fetch_tv_shows(
     let rows = db
         .query_all_raw(Statement::from_sql_and_values(DatabaseBackend::Postgres, &sql, params))
         .await?;
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| tv_show_row_to_dto(r, p.server_id)).collect();
+    let items: Vec<BaseItemDto> = rows.iter().map(|r| tv_show_row_to_dto(r, p.server_id)).collect::<Result<Vec<_>, _>>()?;
     Ok((items, total))
 }
 
-fn tv_show_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> BaseItemDto {
-    let id: Uuid = r.try_get("", "id").unwrap();
+fn tv_show_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> Result<BaseItemDto, sea_orm::DbErr> {
+    let id: Uuid = r.try_get("", "id").map_err(|e| {
+        tracing::error!("failed to get 'id' from row: {e}");
+        sea_orm::DbErr::Custom(e.to_string())
+    })?;
     let id_str = id.to_string();
     let title: String = r.try_get("", "title").unwrap_or_default();
     let original_title: Option<String> = r.try_get("", "original_title").ok().flatten();
@@ -2313,7 +2377,7 @@ fn tv_show_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> BaseItemDto 
 
     let sort_name = sort_title.unwrap_or_else(|| title.to_lowercase());
 
-    BaseItemDto {
+    Ok(BaseItemDto {
         name: title,
         original_title,
         server_id: server_id.to_string(),
@@ -2346,7 +2410,7 @@ fn tv_show_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> BaseItemDto 
             ..Default::default()
         }),
         ..Default::default()
-    }
+    })
 }
 
 async fn fetch_seasons_for_series(
@@ -2378,7 +2442,7 @@ async fn fetch_seasons_for_series(
         .await?;
 
     let total = rows.len() as i64;
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| season_row_to_dto(r, server_id)).collect();
+    let items: Vec<BaseItemDto> = rows.iter().map(|r| season_row_to_dto(r, server_id)).collect::<Result<Vec<_>, _>>()?;
     Ok((items, total))
 }
 
@@ -2410,7 +2474,7 @@ async fn fetch_episodes_for_season(
         .await?;
 
     let total = rows.len() as i64;
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| episode_row_to_dto(r, server_id)).collect();
+    let items: Vec<BaseItemDto> = rows.iter().map(|r| episode_row_to_dto(r, server_id)).collect::<Result<Vec<_>, _>>()?;
     Ok((items, total))
 }
 
@@ -2442,15 +2506,24 @@ async fn fetch_episodes_for_series(
         .await?;
 
     let total = rows.len() as i64;
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| episode_row_to_dto(r, server_id)).collect();
+    let items: Vec<BaseItemDto> = rows.iter().map(|r| episode_row_to_dto(r, server_id)).collect::<Result<Vec<_>, _>>()?;
     Ok((items, total))
 }
 
-fn episode_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> BaseItemDto {
-    let id: Uuid = r.try_get("", "id").unwrap();
+fn episode_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> Result<BaseItemDto, sea_orm::DbErr> {
+    let id: Uuid = r.try_get("", "id").map_err(|e| {
+        tracing::error!("failed to get 'id' from row: {e}");
+        sea_orm::DbErr::Custom(e.to_string())
+    })?;
     let id_str = id.to_string();
-    let tv_show_id: Uuid = r.try_get("", "tv_show_id").unwrap();
-    let season_id: Uuid = r.try_get("", "season_id").unwrap();
+    let tv_show_id: Uuid = r.try_get("", "tv_show_id").map_err(|e| {
+        tracing::error!("failed to get 'tv_show_id' from row: {e}");
+        sea_orm::DbErr::Custom(e.to_string())
+    })?;
+    let season_id: Uuid = r.try_get("", "season_id").map_err(|e| {
+        tracing::error!("failed to get 'season_id' from row: {e}");
+        sea_orm::DbErr::Custom(e.to_string())
+    })?;
     let episode_number: i32 = r.try_get("", "episode_number").unwrap_or(0);
     let title: Option<String> = r.try_get("", "title").ok().flatten();
     let overview: Option<String> = r.try_get("", "overview").ok().flatten();
@@ -2478,7 +2551,7 @@ fn episode_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> BaseItemDto 
         image_tags.insert("Primary".to_string(), id_str.clone());
     }
 
-    BaseItemDto {
+    Ok(BaseItemDto {
         name,
         server_id: server_id.to_string(),
         id: id_str.clone(),
@@ -2513,7 +2586,7 @@ fn episode_row_to_dto(r: &sea_orm::QueryResult, server_id: &str) -> BaseItemDto 
             last_watch_at,
         )),
         ..Default::default()
-    }
+    })
 }
 
 async fn fetch_all_episodes(
@@ -2585,7 +2658,7 @@ async fn fetch_all_episodes(
     let rows = db
         .query_all_raw(Statement::from_sql_and_values(DatabaseBackend::Postgres, &sql, params))
         .await?;
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| episode_row_to_dto(r, server_id)).collect();
+    let items: Vec<BaseItemDto> = rows.iter().map(|r| episode_row_to_dto(r, server_id)).collect::<Result<Vec<_>, _>>()?;
     Ok((items, total))
 }
 
@@ -2679,7 +2752,7 @@ async fn fetch_items_by_ids(
             ))
             .await?
         {
-            items.push(movie_row_to_dto(&r, server_id));
+            items.push(movie_row_to_dto(&r, server_id)?);
             continue;
         }
 
@@ -2701,7 +2774,7 @@ async fn fetch_items_by_ids(
             ))
             .await?
         {
-            items.push(tv_show_row_to_dto(&r, server_id));
+            items.push(tv_show_row_to_dto(&r, server_id)?);
             continue;
         }
 
@@ -2727,7 +2800,7 @@ async fn fetch_items_by_ids(
             ))
             .await?
         {
-            items.push(season_row_to_dto(&r, server_id));
+            items.push(season_row_to_dto(&r, server_id)?);
             continue;
         }
 
@@ -2752,7 +2825,7 @@ async fn fetch_items_by_ids(
             ))
             .await?
         {
-            items.push(episode_row_to_dto(&r, server_id));
+            items.push(episode_row_to_dto(&r, server_id)?);
             continue;
         }
 
@@ -2775,7 +2848,10 @@ async fn fetch_items_by_ids(
             ))
             .await?
         {
-            let id: Uuid = r.try_get("", "id").unwrap();
+            let id: Uuid = r.try_get("", "id").map_err(|e| {
+                tracing::error!("failed to get 'id' from row: {e}");
+                sea_orm::DbErr::Custom(e.to_string())
+            })?;
             let name: String = r.try_get("", "name").unwrap_or_default();
             let app_type: String = r.try_get("", "type").unwrap_or_default();
             let child_count: i64 = r.try_get("", "child_count").unwrap_or(0);
@@ -2984,7 +3060,7 @@ async fn fetch_single_movie(
             [id.parse::<Uuid>().unwrap_or_default().into(), user_id.into()],
         ))
         .await?;
-    Ok(row.as_ref().map(|r| movie_row_to_dto(r, server_id)))
+    Ok(row.as_ref().map(|r| movie_row_to_dto(r, server_id)).transpose()?)
 }
 
 async fn fetch_single_show(
@@ -3008,7 +3084,7 @@ async fn fetch_single_show(
             [id.parse::<Uuid>().unwrap_or_default().into()],
         ))
         .await?;
-    Ok(row.as_ref().map(|r| tv_show_row_to_dto(r, server_id)))
+    Ok(row.as_ref().map(|r| tv_show_row_to_dto(r, server_id)).transpose()?)
 }
 
 #[derive(serde::Deserialize, Default)]
@@ -3104,7 +3180,7 @@ async fn fetch_next_up(
         .skip(start as usize)
         .take(limit as usize)
         .map(|r| episode_row_to_dto(r, server_id))
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
     Ok((items, total))
 }
 

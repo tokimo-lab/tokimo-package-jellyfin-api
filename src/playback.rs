@@ -187,7 +187,13 @@ async fn build_playback_info<S: JellyfinAppState>(
     let mut media_sources = Vec::with_capacity(rows.len());
 
     for r in &rows {
-        let vf_id: Uuid = r.try_get("", "id").unwrap();
+        let vf_id: Uuid = match r.try_get("", "id") {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::error!("failed to get 'id' from playback row: {e}");
+                return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            }
+        };
         let path: String = r.try_get("", "path").unwrap_or_default();
         let filename: String = r.try_get("", "filename").unwrap_or_default();
         let size: Option<i64> = r.try_get("", "size").ok().flatten();
