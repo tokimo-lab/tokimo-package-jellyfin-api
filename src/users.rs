@@ -234,19 +234,18 @@ async fn fetch_user(
     );
     let row = db.query_one_raw(stmt).await?;
     row.map(|r| {
-            let id: Uuid = r.try_get("", "id").map_err(|e| {
-                tracing::error!("failed to get 'id' from user row: {e}");
-                sea_orm::DbErr::Custom(e.to_string())
-            })?;
-            let name: String = r.try_get("", "name").map_err(|e| {
-                tracing::error!("failed to get 'name' from user row: {e}");
-                sea_orm::DbErr::Custom(e.to_string())
-            })?;
-            let last_login: Option<chrono::DateTime<chrono::FixedOffset>> =
-                r.try_get("", "last_login_at").ok().flatten();
-            Ok(user_dto(id, &name, last_login.map(|d| d.to_rfc3339()), server_id))
-        })
-        .transpose()
+        let id: Uuid = r.try_get("", "id").map_err(|e| {
+            tracing::error!("failed to get 'id' from user row: {e}");
+            sea_orm::DbErr::Custom(e.to_string())
+        })?;
+        let name: String = r.try_get("", "name").map_err(|e| {
+            tracing::error!("failed to get 'name' from user row: {e}");
+            sea_orm::DbErr::Custom(e.to_string())
+        })?;
+        let last_login: Option<chrono::DateTime<chrono::FixedOffset>> = r.try_get("", "last_login_at").ok().flatten();
+        Ok(user_dto(id, &name, last_login.map(|d| d.to_rfc3339()), server_id))
+    })
+    .transpose()
 }
 
 /// Minimal password verification (argon2 or plaintext legacy).
