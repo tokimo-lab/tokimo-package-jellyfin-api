@@ -3084,7 +3084,7 @@ async fn fetch_single_movie(
             [id.parse::<Uuid>().unwrap_or_default().into(), user_id.into()],
         ))
         .await?;
-    Ok(row.as_ref().map(|r| movie_row_to_dto(r, server_id)).transpose()?)
+    row.as_ref().map(|r| movie_row_to_dto(r, server_id)).transpose()
 }
 
 async fn fetch_single_show(
@@ -3108,7 +3108,7 @@ async fn fetch_single_show(
             [id.parse::<Uuid>().unwrap_or_default().into()],
         ))
         .await?;
-    Ok(row.as_ref().map(|r| tv_show_row_to_dto(r, server_id)).transpose()?)
+    row.as_ref().map(|r| tv_show_row_to_dto(r, server_id)).transpose()
 }
 
 #[derive(serde::Deserialize, Default)]
