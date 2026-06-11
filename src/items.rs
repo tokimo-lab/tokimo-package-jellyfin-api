@@ -1939,7 +1939,10 @@ async fn fetch_items_by_person(
         .query_all_raw(Statement::from_string(DatabaseBackend::Postgres, movie_sql))
         .await?;
 
-    let mut all_items: Vec<BaseItemDto> = movie_rows.iter().map(|r| movie_row_to_dto(r, server_id)).collect::<Result<Vec<_>, _>>()?;
+    let mut all_items: Vec<BaseItemDto> = movie_rows
+        .iter()
+        .map(|r| movie_row_to_dto(r, server_id))
+        .collect::<Result<Vec<_>, _>>()?;
 
     // --- TV shows featuring this person (de-duplicate by show) ---
     let tv_sql = format!(
@@ -2207,7 +2210,10 @@ async fn fetch_all_seasons_in_library(
         ))
         .await?;
 
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| season_row_to_dto(r, server_id)).collect::<Result<Vec<_>, _>>()?;
+    let items: Vec<BaseItemDto> = rows
+        .iter()
+        .map(|r| season_row_to_dto(r, server_id))
+        .collect::<Result<Vec<_>, _>>()?;
     Ok((items, total))
 }
 
@@ -2255,7 +2261,10 @@ async fn fetch_all_episodes_in_library(
             [library_id.into(), user_id.into(), limit.into(), start.into()],
         ))
         .await?;
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| episode_row_to_dto(r, server_id)).collect::<Result<Vec<_>, _>>()?;
+    let items: Vec<BaseItemDto> = rows
+        .iter()
+        .map(|r| episode_row_to_dto(r, server_id))
+        .collect::<Result<Vec<_>, _>>()?;
     Ok((items, total))
 }
 
@@ -2323,7 +2332,10 @@ async fn fetch_tv_shows(
     let rows = db
         .query_all_raw(Statement::from_sql_and_values(DatabaseBackend::Postgres, &sql, params))
         .await?;
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| tv_show_row_to_dto(r, p.server_id)).collect::<Result<Vec<_>, _>>()?;
+    let items: Vec<BaseItemDto> = rows
+        .iter()
+        .map(|r| tv_show_row_to_dto(r, p.server_id))
+        .collect::<Result<Vec<_>, _>>()?;
     Ok((items, total))
 }
 
@@ -2442,7 +2454,10 @@ async fn fetch_seasons_for_series(
         .await?;
 
     let total = rows.len() as i64;
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| season_row_to_dto(r, server_id)).collect::<Result<Vec<_>, _>>()?;
+    let items: Vec<BaseItemDto> = rows
+        .iter()
+        .map(|r| season_row_to_dto(r, server_id))
+        .collect::<Result<Vec<_>, _>>()?;
     Ok((items, total))
 }
 
@@ -2474,7 +2489,10 @@ async fn fetch_episodes_for_season(
         .await?;
 
     let total = rows.len() as i64;
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| episode_row_to_dto(r, server_id)).collect::<Result<Vec<_>, _>>()?;
+    let items: Vec<BaseItemDto> = rows
+        .iter()
+        .map(|r| episode_row_to_dto(r, server_id))
+        .collect::<Result<Vec<_>, _>>()?;
     Ok((items, total))
 }
 
@@ -2506,7 +2524,10 @@ async fn fetch_episodes_for_series(
         .await?;
 
     let total = rows.len() as i64;
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| episode_row_to_dto(r, server_id)).collect::<Result<Vec<_>, _>>()?;
+    let items: Vec<BaseItemDto> = rows
+        .iter()
+        .map(|r| episode_row_to_dto(r, server_id))
+        .collect::<Result<Vec<_>, _>>()?;
     Ok((items, total))
 }
 
@@ -2658,7 +2679,10 @@ async fn fetch_all_episodes(
     let rows = db
         .query_all_raw(Statement::from_sql_and_values(DatabaseBackend::Postgres, &sql, params))
         .await?;
-    let items: Vec<BaseItemDto> = rows.iter().map(|r| episode_row_to_dto(r, server_id)).collect::<Result<Vec<_>, _>>()?;
+    let items: Vec<BaseItemDto> = rows
+        .iter()
+        .map(|r| episode_row_to_dto(r, server_id))
+        .collect::<Result<Vec<_>, _>>()?;
     Ok((items, total))
 }
 
